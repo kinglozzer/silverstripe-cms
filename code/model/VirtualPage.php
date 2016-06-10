@@ -399,24 +399,6 @@ class VirtualPage extends Page {
 	}
 
 	/**
-	 * Overwrite to also check for method on the original data object
-	 *
-	 * @param string $method
-	 * @return bool
-	 */
-	public function hasMethod($method) {
-		if(parent::hasMethod($method)) {
-			return true;
-		}
-		// Don't call property setters on copied page
-		if(stripos($method, 'set') === 0) {
-			return false;
-		}
-		$copy = $this->CopyContentFrom();
-		return $copy && $copy->exists() && $copy->hasMethod($method);
-	}
-
-	/**
 	 * Return the "casting helper" (a piece of PHP code that when evaluated creates a casted value object) for a field
 	 * on this object.
 	 *
@@ -431,84 +413,28 @@ class VirtualPage extends Page {
 		return parent::castingHelper($field);
 	}
 
-}
-
-/**
- * Controller for the virtual page.
- * @package cms
- */
-class VirtualPage_Controller extends Page_Controller {
-
-	private static $allowed_actions = array(
-		'loadcontentall' => 'ADMIN',
-	);
-
-	public function getViewer($action) {
-		$originalClass = get_class($this->CopyContentFrom());
-		if ($originalClass == 'SiteTree') $name = 'Page_Controller';
-		else $name = $originalClass."_Controller";
-		$controller = new $name();
-		return $controller->getViewer($action);
-	}
-
 	/**
-	 * When the virtualpage is loaded, check to see if the versions are the same
-	 * if not, reload the content.
-	 * NOTE: Virtual page must have a container object of subclass of sitetree.
-	 * We can't load the content without an ID or record to copy it from.
+	 * {@inheritdoc}
 	 */
-	public function init(){
-		parent::init();
-		$this->__call('init', array());
-	}
+	public function allMethodNames($custom = false) {
+		$methods = parent::allMethodNames($custom);
 
-	/**
-	 * Also check the original object's original controller for the method
-	 *
-	 * @param string $method
-	 * @return bool
-	 */
-	public function hasMethod($method) {
-		$haveIt = parent::hasMethod($method);
-		if (!$haveIt) {
-			$originalClass = get_class($this->CopyContentFrom());
-			if ($originalClass == 'SiteTree') $name = 'ContentController';
-			else $name = $originalClass."_Controller";
-			$controller = new $name($this->dataRecord->copyContentFrom());
-			$haveIt = $controller->hasMethod($method);
+		if ($copy = $this->CopyContentFrom()) {
+			$methods = array_merge($methods, $copy->allMethodNames($custom));
 		}
-		return $haveIt;
+
+		return $methods;
 	}
 
 	/**
-	 * Pass unrecognized method calls on to the original controller
-	 *
-	 * @param string $method
-	 * @param string $args
-	 * @return mixed
-	 *
-	 * @throws Exception Any error other than a 'no method' error.
+	 * {@inheritdoc}
 	 */
-	public function __call($method, $args) {
-		try {
-			return parent::__call($method, $args);
-		} catch (Exception $e) {
-			// Hack... detect exception type. We really should use exception subclasses.
-			// if the exception isn't a 'no method' error, rethrow it
-			if ($e->getCode() !== 2175) {
-				throw $e;
-			}
-
-			$original = $this->copyContentFrom();
-			$controller = ModelAsController::controller_for($original);
-
-			// Ensure request/response data is available on virtual controller
-			$controller->setRequest($this->getRequest());
-			$controller->response = $this->response; // @todo - replace with getter/setter in 3.3
-
-			return call_user_func_array(array($controller, $method), $args);
+	public function getControllerName($action = null) {
+		if ($copy = $this->CopyContentFrom()) {
+			return $copy->getControllerName($action);
 		}
+
+		return parent::getControllerName($action);
 	}
+
 }
-
-

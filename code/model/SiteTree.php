@@ -2674,6 +2674,43 @@ class SiteTree extends DataObject implements PermissionProvider,i18nEntityProvid
 	}
 
 	/**
+	 * @param string $action
+	 * @return Controller
+	 */
+	public function getAssociatedController($action = null) {
+		$controllerName = $this->getControllerName($action);
+		return Injector::inst()->create($controllerName, $this);
+	}
+
+	/**
+	 * @param string $action
+	 * @return string
+	 */
+	public function getControllerName($action = null) {
+		$action = ucfirst($action); // Needed as Injector service names are case sensitive
+		$ancestry = ClassInfo::ancestry($this->class);
+
+		$controller = null;
+		while ($class = array_pop($ancestry)) {
+			if ($class === 'SiteTree') {
+				break;
+			} else if (class_exists("{$class}_Controller")) {
+				$controller = "{$class}_Controller";
+				break;
+			} else if ($action && class_exists("{$class}_Controller_{$action}")) {
+				$controller = "{$class}_Controller_{$action}";
+				break;
+			}
+		}
+
+		if (!$controller) {
+			$controller = 'ContentController';
+		}
+
+		return $controller;
+	}
+
+	/**
 	 * Stops extendCMSFields() being called on getCMSFields(). This is useful when you need access to fields added by
 	 * subclasses of SiteTree in a extension. Call before calling parent::getCMSFields(), and reenable afterwards.
 	 */

@@ -13,26 +13,14 @@ class ModelAsController extends Controller implements NestedController {
 	 * Get the appropriate {@link ContentController} for handling a {@link SiteTree} object, link it to the object and
 	 * return it.
 	 *
+	 * @deprecated 5.0
 	 * @param SiteTree $sitetree
 	 * @param string $action
 	 * @return ContentController
 	 */
 	public static function controller_for(SiteTree $sitetree, $action = null) {
-		if ($sitetree->class == 'SiteTree') {
-			$controller = "ContentController";
-		} else {
-			$ancestry = ClassInfo::ancestry($sitetree->class);
-			while ($class = array_pop($ancestry)) {
-				if (class_exists($class . "_Controller")) break;
-			}
-			$controller = ($class !== null) ? "{$class}_Controller" : "ContentController";
-		}
-
-		if($action && class_exists($controller . '_' . ucfirst($action))) {
-			$controller = $controller . '_' . ucfirst($action);
-		}
-
-		return class_exists($controller) ? Injector::inst()->create($controller, $sitetree) : $sitetree;
+		Deprecation::notice('5.0', 'Use $sitetree->getAssociatedController() instead');
+		return $sitetree->getAssociatedController($action);
 	}
 
 	public function init() {
